@@ -11,33 +11,19 @@ var fs = require('fs')
   , colors = require('colors')
   , childprocess = require('child_process')
 
-  , file_options = {
+  , fileOptions = {
     'input_path': './src.dust',
     'output_path': './dust'
   }
-  , user_settings_file = process.env['HOME'] + '/.dusterjs',
+  // Shouldn't this be in CWD?
+  , userSettingsFile = process.cwd() + '/.dusterjs'
   , ignoreRegexes = {
       'svn': /\.svn/
-    , 'swp': /\.swp/,
+    , 'swp': /\.swp/
     , 'git': /\.git/
     }
   , dustRegex = /\.dust$/
   ;
-
-
-/**
- * Creates a Growl message.
- */
-function growl(message, sticky) {
-  var command = '/usr/local/env growlnotify -p 1 -m "' + message + '"', growlnotice;
-
-  if (sticky) {
-    command += ' -s';
-  }
-
-  growlnotice = childprocess.exec(command, function(error, stdout, stderr) {});
-  growlnotice.on('exit', function(code) {});
-}
 
 /**
  * Determines whether the filename should be ignored, determined by the given
@@ -74,7 +60,7 @@ function compileDust(path, curr, prev) {
     }
 
     var filename = path.split("/").reverse()[0].replace(".dust", "");
-    var filepath = file_options.output_path +  '/' + filename + ".js";
+    var filepath = fileOptions.output_path +  '/' + filename + ".js";
     var compiled = '';
     try {
       compiled = dust.compile(new String(data), filename);
@@ -87,18 +73,20 @@ function compileDust(path, curr, prev) {
         console.log('Saved ' + filepath);
         growl('Saved ' + filepath);
       });
+
     } catch (err) {
       growl('Error: ' + err, { sticky: true });
     }
+
   });
 }
 
 function createMonitor() {
   try {
-    watch.createMonitor(file_options.input_path, {
+    watch.createMonitor(fileOptions.input_path, {
       'ignoreDotFiles': true
     }, function(monitor) {
-      console.log("Watching " + file_options.input_path);
+      console.log("Watching " + fileOptions.input_path);
       monitor.files['*.dust', '*/*'];
       monitor.on("created", compileDust);
       monitor.on("changed", compileDust);
@@ -110,7 +98,7 @@ function createMonitor() {
 }
 
 function processCurrentFiles() {
-  fs.readdir(file_options.input_path, function(err, files) {
+  fs.readdir(fileOptions.input_path, function(err, files) {
     if(!err) {
       files.forEach(function(filename) {
         var dustFile;
@@ -118,10 +106,10 @@ function processCurrentFiles() {
           return;
         }
         dustFile = filename.replace('.dust', '') + '.js';
-        fs.stat(file_options.output_path + '/' + dustFile, function(err, props) {
+        fs.stat(fileOptions.output_path + '/' + dustFile, function(err, props) {
           if(err) {
-            console.log('file not found: ' + file_options.output_path + '/' + dustFile);
-            compileDust(file_options.input_path + '/' + filename);
+            console.log('file not found: ' + fileOptions.output_path + '/' + dustFile);
+            compileDust(fileOptions.input_path + '/' + filename);
           }
         });
       });
@@ -130,36 +118,47 @@ function processCurrentFiles() {
 }
 
 function main() {
-  fs.exists(user_settings_file, function(exists) {
+  fs.exists(userSettingsFile, function(exists) {
     if (exists) {
-      fs.readFile(user_settings_file, 'utf8', function(err, data) {
+      fs.readFile(userSettingsFile, 'utf8', function(err, data) {
+        var doc;
+
         if (err) {
           return;
         }
 
         try {
           // TODO: use JSON instead
-          yaml.loadAll(data, function(doc) {
+          doc = JSON.parse(data) 
+          
+          // This used to be a callback; now it's an IIFE.
+          (function(doc) {
+
             if (doc.input_path) {
-              file_options.input_path = doc.input_path;
-            }
-            if (doc.output_path) {
-              file_options.output_path = doc.output_path;
+              fileOptions.input_path = doc.input_path;
             }
 
-            growl('Watching ' + file_options.input_path + ' for changes');
-            growl('Saving compiled templates to ' + file_options.output_path);
+            if (doc.output_path) {
+              fileOptions.output_path = doc.output_path;
+            }
+
+            growl('Watching ' + fileOptions.input_path + ' for changes');
+            growl('Saving compiled templates to ' + fileOptions.output_path);
 
             processCurrentFiles();
             createMonitor();
-          });
+          })(doc);
+
         } catch (err) {
+          // Not sure why this is here, but I'll leave it in for now.
           growl('Error: ' + err, { sticky: true });
         }
+
       });
+
     } else {
-      growl('Watching ' + file_options.input_path + ' for changes');
-      growl('Saving compiled templates to ' + file_options.output_path);
+      growl('Watching ' + fileOptions.input_path + ' for changes');
+      growl('Saving compiled templates to ' + fileOptions.output_path);
 
       processCurrentFiles();
       createMonitor();
