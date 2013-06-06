@@ -1,9 +1,10 @@
-Duster.js - Node script to watch & precompile directory of dustjs templates
-==============
+Duster.js 
+==========
+_Node script to watch & precompile directory of dustjs templates_
 
-Based on the original script by Dan McGrady http://dmix.ca
+Based on the original script by Dan McGrady <http://dmix.ca>
 
-A simple Node script <a href="#">Duster.js</a> to watch a directory of .dust templates and compile them into .js files which can be included into an HTML file.
+A simple Node script `duster.js` to watch a directory of .dust templates and compile them into .js files which can be included into an HTML file.
 
 Why? The dust.js documentation does not mentioned a clear way to work with dust templates in a purely client-side approach, instead focusing on server-side node.js applications.
 
@@ -12,29 +13,44 @@ For my backbone.js app, the only option was to include the dust-full.js file and
 So I wrote a script to pre-compile dust.js files whenever they are modified in a folder.
 
 ## Install
+
 Clone this repository
+    
+```sh
+git clone
+```
 
 Run the installation 
-    $ npm install
 
-Get the growl app from the App Store (*not free) or from here https://bitbucket.org/pmetzger/growl/downloads
+```sh
+npm install
+```
 
-Be sure to install growlnotify plugin
+Optional:
+
+OS X users can use Growl or [terminal-notifier](https://github.com/alloy/terminal-notifier).
 
 ## Usage
-Create a file named .dusterjs in your home directory and add the input and output paths to it. The file is expected to be in YAML format
+
+Create a file named `.dusterjs` in your current working directory and add the input and output paths to it. The format is a simple JSON file
 
 Example: 
 
-    ---
-    input_path:   /Users/<username>/src.dust/
-    output_path:  /Users/<username>/dust/
+```json
+{
+  "input_path": "./test/src",
+  "output_path": "./test/dest"
+}
+```
 
-Create dust.js templates in the <input_path> dir with the file extension .dust and create <output_path> directory where files will be compiled to, then run watcher script:
+Create dust.js templates in the `input_path` directory with the file extension `.dust` and create `output_path` directory where files will be compiled to.  Then run the watcher script:
 
-    $ node duster.js
+```sh
+node duster.js
+```
 
 ## Example:
+
     <input_path>/tweet.dust
     <input_path>/user.dust
 
@@ -45,8 +61,15 @@ Compiles to:
 
 ## Changes by Suresh Jayanty
 
-* Added support for growl notifications
+ * Added support for growl notifications
+ * Added support for settings file
+ * Ignoring .swp files created when some one uses vim to edit the dust files
 
-* Added support for settings file
+## Changes by eddieantonio
 
-* Ignoring .swp files created when some one uses vim to edit the dust files
+ * Hilariously undermined Suresh's contributions:
+    - Changed built-in growl to [node-growl](https://github.com/visionmedia/node-growl)
+    - Changed YAML format to JSON format. Not quite sure why I did this. :/
+    - Changed settings file to the current working directory (as opposed to
+      home directory).
+

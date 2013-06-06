@@ -34,7 +34,7 @@ function shouldIgnore(ignores, filename) {
 
   // Check the filename against EVERY regex.
   for (regex in ignores) {
-    if (filename.match(regex)) {
+    if (ignores[regex].exec(filename)) {
       return true;
     }
   }
@@ -47,7 +47,6 @@ function compileDust(path, curr, prev) {
 
   // Check if we should ignore the file.
   if (shouldIgnore(ignoreRegexes, path)) {
-    console.log(('Ignoring file: ' + path).red);
     return;
   }
 
@@ -61,7 +60,8 @@ function compileDust(path, curr, prev) {
 
     var filename = path.split("/").reverse()[0].replace(".dust", "");
     var filepath = fileOptions.output_path +  '/' + filename + ".js";
-    var compiled = '';
+    var compiled;
+
     try {
       compiled = dust.compile(new String(data), filename);
 
@@ -70,8 +70,9 @@ function compileDust(path, curr, prev) {
           growl('Error: ' + err, { sticky: true });
           throw err;
         }
-        console.log('Saved ' + filepath);
+
         growl('Saved ' + filepath);
+
       });
 
     } catch (err) {
@@ -81,33 +82,29 @@ function compileDust(path, curr, prev) {
   });
 }
 
-function createMonitor() {
-  try {
-    watch.createMonitor(fileOptions.input_path, {
-      'ignoreDotFiles': true
-    }, function(monitor) {
-      console.log("Watching " + fileOptions.input_path);
-      monitor.files['*.dust', '*/*'];
-      monitor.on("created", compileDust);
-      monitor.on("changed", compileDust);
-    });
-  } catch (err) {
-    growl('Error: ' + err, { sticky: true });
-    console.log(err);
-  }
+function createMonitor(settings) {
+
+  watch.createMonitor(settings.input_path, {
+    'ignoreDotFiles': true
+  }, function(monitor) {
+    monitor.files['*.dust', '*/*'];
+    monitor.on("created", compileDust);
+    monitor.on("changed", compileDust);
+  });
 }
 
-function processCurrentFiles() {
-  fs.readdir(fileOptions.input_path, function(err, files) {
-    if(!err) {
-      files.forEach(function(filename) {
+function processCurrentFiles(settings) {
+  fs.readdir(settings.input_path, function (err, files) {
+    if (!err) {
+      files.forEach(function (filename) {
         var dustFile;
-        if(!dustRegex.exec(filename)) {
+
+        if (!dustRegex.exec(filename)) {
           return;
         }
         dustFile = filename.replace('.dust', '') + '.js';
         fs.stat(fileOptions.output_path + '/' + dustFile, function(err, props) {
-          if(err) {
+          if (err) {
             console.log('file not found: ' + fileOptions.output_path + '/' + dustFile);
             compileDust(fileOptions.input_path + '/' + filename);
           }
@@ -117,9 +114,17 @@ function processCurrentFiles() {
   });
 }
 
+function startWatch(settings) {
+  growl('Watching ' + settings.input_path + ' for changes');
+
+  processCurrentFiles(settings);
+  createMonitor(settings);
+}
+
 function main() {
   fs.exists(userSettingsFile, function(exists) {
     if (exists) {
+
       fs.readFile(userSettingsFile, 'utf8', function(err, data) {
         var doc;
 
@@ -129,25 +134,17 @@ function main() {
 
         try {
           // TODO: use JSON instead
-          doc = JSON.parse(data) 
-          
-          // This used to be a callback; now it's an IIFE.
-          (function(doc) {
+          doc = JSON.parse(data);
 
-            if (doc.input_path) {
-              fileOptions.input_path = doc.input_path;
-            }
+          if (doc.input_path) {
+            fileOptions.input_path = doc.input_path;
+          }
 
-            if (doc.output_path) {
-              fileOptions.output_path = doc.output_path;
-            }
+          if (doc.output_path) {
+            fileOptions.output_path = doc.output_path;
+          }
 
-            growl('Watching ' + fileOptions.input_path + ' for changes');
-            growl('Saving compiled templates to ' + fileOptions.output_path);
-
-            processCurrentFiles();
-            createMonitor();
-          })(doc);
+          startWatch(fileOptions);
 
         } catch (err) {
           // Not sure why this is here, but I'll leave it in for now.
@@ -157,13 +154,14 @@ function main() {
       });
 
     } else {
-      growl('Watching ' + fileOptions.input_path + ' for changes');
-      growl('Saving compiled templates to ' + fileOptions.output_path);
+      // Er... This happened. Just deal with it, okay?
+      startWatch(fileOptions);
 
-      processCurrentFiles();
-      createMonitor();
     }
   });
 }
 
-main();
+// Run the main function if this is being invoked as a script.
+if (require.main === module) {
+  main();
+}
